@@ -39,3 +39,18 @@ Conflicts: ufispace-bsp-sfp-logger
 Replaces: ufispace-bsp-sfp-logger
 Description: Vyatta SFP management daemon
  Daemon for SFP logging and state management and notification via ZMQ.
+
+Package: python3-vyatta-platform-detect
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}, dmidecode
+Description: Vyatta platform detection python3 library
+ Library containing classes for detecting the platform and associated helpers
+
+Package: vyatta-platform-util
+Architecture: all
+Depends:
+ ${misc:Depends},
+ python3-vyatta-platform-detect,
+ python3,
+Description: Vyatta platform query and configure utility
+ Tool for querying platform properties and system setup

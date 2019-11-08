@@ -157,14 +157,14 @@ class InprocSfpHelper(BaseSfpHelper):
             eeprom_req['porttype'] = porttype
             eeprom_req['port'] = port
             if offset:
-                eeprom_req['offset'] = 0
-            else:
                 eeprom_req['offset'] = offset
+            else:
+                eeprom_req['offset'] = 0
 
             if length:
-                eeprom_req['length'] = 0
-            else:
                 eeprom_req['length'] = length
+            else:
+                eeprom_req['length'] = 0
 
             req_socket.send_json(eeprom_req);
             msg = req_socket.recv_json(strict=False)
@@ -176,7 +176,31 @@ class InprocSfpHelper(BaseSfpHelper):
                 raise SfpHelperException
 
     def query_eeprom(self, porttype, port):
-        pass
+        """Get the set of pages that the spf has
+
+        If an SFP read the DMT byte from page a0 of the sfp.  If implemented
+        then we have pages a0 and a2 otherwise just a0.
+
+        If a QSFP then assume pages 00h to 03h are all present.
+        """
+        pages = []
+        if porttype == 'SFP':
+
+            data = self.read_eeprom(porttype, port, self.DMT_BYTE, 1)
+            if (data):
+                pages.append(0xa0)
+                dmt_imp = data[0] & (self.DMT_IMPL|self.DMT_ADDR_CHNG_REQ) == self.DMT_IMPL
+                if dmt_imp:
+                    pages.append(0xa2)
+
+            else:
+                    raise SfpHelperException
+        elif porttype == 'QSFP':
+            for page in range(4):
+                pages.append(page)
+        else:
+            raise Exception("unexpected port type {}".format(porttype))
+        return pages
 
 def new_helper(sfpd):
     return InprocSfpHelper(sfpd)

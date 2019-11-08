@@ -1,0 +1,78 @@
+#! /usr/bin/python3
+
+# Module: vyatta-platform
+# **** License ****
+# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+#
+# SPDX-License-Identifier: LGPL-2.1-only
+# **** End License ****
+#
+# Detect platform and answer queries on platform-specific behaviour
+#
+
+import logging
+import argparse
+import sys
+from vyatta.platform.detect import PlatformError, detect
+
+LOG = logging.getLogger()
+LOG.setLevel(logging.INFO)
+
+def main(args):
+    if args.debug:
+        LOG.setLevel(logging.DEBUG)
+
+    if args.query_is_switch:
+        is_switch = False
+        try:
+            platform = detect()
+            is_switch = platform.is_switch()
+        except PlatformError as e:
+            LOG.debug('determining switch gave ' + repr(e))
+            pass
+
+        sys.exit(0 if is_switch else 1)
+
+    if args.configure_dataplane:
+        try:
+            platform = detect()
+            platform.configure_dataplane(args.configure_dataplane)
+        except PlatformError as e:
+            LOG.debug('configuring dataplane gave ' + repr(e))
+            pass
+
+    if args.what_am_i:
+        try:
+            platform = detect()
+            print(platform.get_platform_string())
+        except PlatformError as e:
+            LOG.debug('determining switch gave ' + repr(e))
+            print('unknown')
+            pass
+
+    if args.format_platform_state:
+        try:
+            platform = detect()
+            platform.format_platform_state(args.format_platform_state)
+        except PlatformError as e:
+            LOG.debug('determining platform gave ' + repr(e))
+            pass
+
+    sys.exit(0)
+
+if __name__ == '__main__':
+    logging.basicConfig()
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--query-is-switch", action='store_true',
+                        help="Query whether the platform defaults to a switch. If not, then it's a router")
+    group.add_argument("--configure-dataplane", metavar='CONFFILE',
+                        help="Configure the dataplane to make use of the platform")
+    group.add_argument("--what-am-i", action='store_true',
+                        help="Return a string that identifies the platform")
+    group.add_argument("--format-platform-state", metavar='COMMAND',
+                        help="Format state specific for a platform for display to a user. State is passed via stdin")
+    parser.add_argument("--debug", action='store_true',
+                        help="Turn on debugs")
+    args = parser.parse_args()
+    main(args)
