@@ -1,0 +1,144 @@
+#! /usr/bin/python3
+
+# Module: vyatta-sfp-util
+# **** License ****
+# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+#
+# SPDX-License-Identifier: LGPL-2.1-only
+# **** End License ****
+#
+# Utility for talking to vyatta-sfpd
+#
+
+import zmq
+import json
+import argparse
+import sys
+import base64
+
+def main(parser, args):
+    REQ_ENDPOINT = "ipc:///var/run/vyatta/sfp_rep.socket"
+
+    context = zmq.Context()
+    req_sock = context.socket(zmq.REQ)
+    req_sock.connect(REQ_ENDPOINT)
+
+    if args.sfp_tx_state_set is not None:
+        if not args.port:
+            print("Missing port argument")
+            sys.exit(1)
+        req_json = {
+            'command': 'SFPSTATESET',
+            'portname': args.port,
+            'enabled': args.sfp_tx_state_set
+        }
+        req_sock.send_json(req_json)
+        print(req_sock.recv_string())
+        sys.exit(0)
+
+    if args.phy_link_status:
+        req_json = {
+            'command': 'PHYLINKSTATUS',
+        }
+        req_sock.send_json(req_json)
+        print(req_sock.recv_string())
+        sys.exit(0)
+
+    if args.phy_speed_duplex_set:
+        if not args.port:
+            print("Missing port argument")
+            sys.exit(1)
+        req_json = {
+            'command': 'PHYSPEEDDUPLEXSET',
+            'portname': args.port,
+            'speed': args.phy_speed_duplex_set[0],
+            'duplex': args.phy_speed_duplex_set[1],
+        }
+        req_sock.send_json(req_json)
+        print(req_sock.recv_string())
+        sys.exit(0)
+
+    if args.phy_autoneg_set:
+        if not args.port:
+            print("Missing port argument")
+            sys.exit(1)
+        req_json = {
+            'command': 'PHYAUTONEGSET',
+            'portname': args.port,
+        }
+        req_sock.send_json(req_json)
+        print(req_sock.recv_string())
+        sys.exit(0)
+
+    if args.replay:
+        req_json = {
+            'command': 'REPLAY',
+        }
+        req_sock.send_json(req_json)
+        print(req_sock.recv_string())
+        sys.exit(0)
+
+    if args.read_eeprom or args.read_eeprom_offset:
+        if not args.port:
+            print("Missing port argument")
+            sys.exit(1)
+        req_json = {
+            'command': 'SFPREADEEPROM',
+            'portname': args.port,
+        }
+        if args.read_eeprom_offset:
+            req_json['offset'] = int(args.read_eeprom_offset[0])
+            req_json['length'] = int(args.read_eeprom_offset[1])
+        req_sock.send_json(req_json)
+        resp = req_sock.recv_json()
+        if resp['result'] != 'OK':
+            print(resp['result'])
+            sys.exit(1)
+        eeprom_data = base64.b64decode(resp['data'].encode())
+        print(''.join('{:02x}'.format(b) for b in eeprom_data))
+        sys.exit(0)
+
+    if args.query_eeprom:
+        if not args.port:
+            print("Missing port argument")
+            sys.exit(1)
+        req_json = {
+            'command': 'SFPQUERYEEPROM',
+            'portname': args.port,
+        }
+        req_sock.send_json(req_json)
+        resp = req_sock.recv_json()
+        if resp['result'] != 'OK':
+            print(resp['result'])
+            sys.exit(1)
+        pages = resp['pages']
+        print('Type: ' + resp['porttype'] + ', pages: ' + ', '.join('{:02x}'.format(int(b)) for b in pages))
+        sys.exit(0)
+
+    parser.print_help()
+    sys.exit(1)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--sfp-tx-state-set", metavar='ENABLED', action='store',
+                       type=bool,
+                       help="Set the TX state of the SFP")
+    group.add_argument("--phy-link-status", action='store_true',
+                        help="Get the link status of any embedded PHY on the SFP")
+    group.add_argument("--phy-speed-duplex-set", nargs=2,
+                        help="Force speed and duplex of embedded PHY on the SFP")
+    group.add_argument("--phy-autoneg-set", action='store_true',
+                        help="Set autoneg of embedded PHY on the SFP")
+    group.add_argument("--replay", action='store_true',
+                        help="Perform a replay of state for publishing")
+    group.add_argument("--read-eeprom", action='store_true',
+                        help="Read entire EEPROM")
+    group.add_argument("--read-eeprom-offset", nargs=2,
+                        help="Read EEPROM from given offset upto given length")
+    group.add_argument("--query-eeprom", action='store_true',
+                        help="Query EEPROM supported pages and type")
+    parser.add_argument("--port", action='store',
+                        help="Port to act upon")
+    args = parser.parse_args()
+    main(parser, args)

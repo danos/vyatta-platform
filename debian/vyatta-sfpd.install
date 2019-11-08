@@ -1,0 +1,2 @@
+sbin/vyatta-sfpd usr/sbin/
+bin/vyatta-sfp-util usr/bin/

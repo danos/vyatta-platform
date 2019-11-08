@@ -1,0 +1,3 @@
+lib/vyatta/platform/basesfphelper.py /usr/lib/python3/dist-packages/vyatta/platform/
+lib/vyatta/platform/sfpmgr.py /usr/lib/python3/dist-packages/vyatta/platform/
+lib/vyatta/platform/inprocsfphelper.py /usr/lib/python3/dist-packages/vyatta/platform/

@@ -1,0 +1,41 @@
+Source: vyatta-platform
+Section: contrib/net
+Priority: optional
+Maintainer: Vyatta Package Maintainers <DL-vyatta-help@att.com>
+Build-Depends: debhelper (>=9),
+               dh-python,
+               dh-systemd,
+               python3,
+               python3-all,
+Standards-Version: 3.9.6
+X-Python3-Version: >= 3.3
+
+Package: python3-vyatta-phy
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-smbus
+Description: Vyatta PHY management libraries
+ Python libraries for detecting, querying and managing PHYs and an
+ implementation for the Marvell88E1111 PHY.
+
+Package: python3-vyatta-platform-sfp
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-zmq, python3-vyatta-phy
+Breaks: python3-ufispace-bsp-sfp-helper (<< 3.0.5-0vyatta3)
+Provides: sfp-inproc-helper
+Description: Vyatta SFP management and notification libraries
+ Python libraries for SFP helper base classes and SFP state management
+ and notification.
+
+Package: vyatta-sfpd
+Architecture: all
+Depends:
+        ${python3:Depends},
+        ${misc:Depends},
+        python3-vyatta-platform-sfp,
+        python3-vyatta-phy,
+        python3-vyatta-platform-detect,
+Provides: ufispace-bsp-sfp-logger,
+Conflicts: ufispace-bsp-sfp-logger
+Replaces: ufispace-bsp-sfp-logger
+Description: Vyatta SFP management daemon
+ Daemon for SFP logging and state management and notification via ZMQ.

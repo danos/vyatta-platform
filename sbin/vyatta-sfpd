@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+#
+# SPDX-License-Identifier: LGPL-2.1-only
+
+import select
+import subprocess
+import sys
+from vyatta.platform.sfpmgr import SfpStateManager
+from vyatta.phy.phy import PhyBus
+from vyatta.phy.basephy import PhyException
+from vyatta.platform.detect import PlatformError, detect
+
+class SfpDaemon(object):
+    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, helper_module):
+        self.pub_endpoint = pub_endpoint
+        self.rep_endpoint = rep_endpoint
+        self.req_endpoint = req_endpoint
+        self.sfphelper = helper_module.new_helper(self)
+        self.sfpmgr = SfpStateManager(self.pub_endpoint, self.rep_endpoint,
+                                      self.req_endpoint, self.sfphelper)
+
+    def on_sfp_presence_change(self, portname, porttype, port, presence):
+        '''
+        Called when sfphelper detects that the presence of a port has
+        changed
+        '''
+        extra_state={}
+        print("<%d>%s %d has been %splugged" % (5 if presence else 4, porttype, port, "" if presence else "un"), flush=True)
+        # We can't tell if sgmii is supported by reading the eeprom so
+        # try to enable it to find out if it is supported.
+        if presence and self.sfphelper.set_sgmii_enabled(porttype, port):
+            extra_state['sgmii_enabled'] = True
+        if 'sgmii_enabled' in extra_state and extra_state['sgmii_enabled']:
+            print("%s %d is SGMII capable" % (porttype, port))
+        self.sfpmgr.on_sfp_presence_change(portname, porttype, port, presence,
+                                           extra_state)
+
+    def on_file_event(self, file, event):
+        '''
+        Called when a file event is triggered by the sfphelper's
+        main_loop function
+        '''
+        if file == self.sfpmgr.get_rep_socket_fd():
+            self.sfpmgr.process_rep_socket()
+        else:
+            raise Exception("unexpected event for file {}".format(file))
+
+    def main(self):
+        self.sfphelper.main_loop([(self.sfpmgr.get_rep_socket_fd(), select.POLLIN)])
+
+def main():
+    if len(sys.argv) != 4:
+        print("\nUsage: " + sys.argv[0] + " <pub_endpoint> <rep_endpoint> <req_endpoint>")
+        sys.exit(1)
+
+    helper_module = None
+    try:
+        platform = detect()
+        helper_module = platform.get_sfp_helper_module()
+    except (AttributeError, PlatformError) as e:
+        pass
+    if helper_module is None:
+        sys.exit(0)
+
+    sfpd = SfpDaemon(sys.argv[1], sys.argv[2], sys.argv[3], helper_module)
+    sfpd.main()
+
+if __name__ == "__main__":
+    main()

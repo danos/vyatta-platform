@@ -1,0 +1,8 @@
+[Socket]
+ListenStream=/var/run/vyatta/sfp_rep.socket
+SocketUser=root
+SocketGroup=adm
+SocketMode=770
+
+[Install]
+WantedBy=sockets.target
