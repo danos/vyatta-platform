@@ -51,7 +51,7 @@ def main(parser, args):
         req_json = {
             'command': 'PHYSPEEDDUPLEXSET',
             'portname': args.port,
-            'speed': args.phy_speed_duplex_set[0],
+            'speed': int(args.phy_speed_duplex_set[0]),
             'duplex': args.phy_speed_duplex_set[1],
         }
         req_sock.send_json(req_json)
