@@ -1,3 +1,10 @@
+vyatta-platform (2.3) unstable; urgency=medium
+
+  * vyatta-sfp-util: fix use of --phy-speed-duplex-set option
+    (Fixes: VRVDR-49652)
+
+ -- Robert Shearman <robert.shearman@att.com>  Mon, 20 Jan 2020 08:48:56 +0000
+
 vyatta-platform (2.2) unstable; urgency=medium
 
   * DANOS Import master
