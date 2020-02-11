@@ -114,8 +114,22 @@ class SfpStateManager(object):
             # eat the exception and return no extra state
             pass
 
-    def on_sfp_presence_change(self, portname, porttype, port, presence,
-                               extra_state={}):
+    def _may_support_sgmii(self, sfp_state):
+        # 100BASE-FX, 100BASE-LX/LX10 or 1000BASE-T
+        if 'eeprom_eth_compat' in sfp_state and \
+           (sfp_state['eeprom_eth_compat'] & 0x08 or
+            sfp_state['eeprom_eth_compat'] & 0x10 or
+            sfp_state['eeprom_eth_compat'] & 0x20):
+            return True
+        # 10GBASE-T or 5GBASE-T or 2.5GBASE-T
+        if 'eeprom_eth_extended_comp' in sfp_state and \
+           (sfp_state['eeprom_eth_extended_comp'] == 0x1c or
+            sfp_state['eeprom_eth_extended_comp'] == 0x1d or
+            sfp_state['eeprom_eth_extended_comp'] == 0x1e):
+            return True
+        return False
+
+    def on_sfp_presence_change(self, portname, porttype, port, presence, extra_state):
         '''
         Notifies the SFP manager that the presence of an SFP has
         changed
@@ -126,10 +140,19 @@ class SfpStateManager(object):
         '''
         topic = "sfp"
         if not extra_state:
+            extra_state = {}
             if porttype == 'SFP':
                 self._sfp_eeprom_get_extra_state(port, extra_state)
             elif porttype == 'QSFP':
                 self._qsfp_eeprom_get_extra_state(port, extra_state)
+
+        # We can't tell if sgmii is supported by reading the eeprom so
+        # try to enable it to find out if it is supported.
+        if presence and self._may_support_sgmii(extra_state) and \
+           self.sfphelper.set_sgmii_enabled(porttype, port):
+            extra_state['sgmii_enabled'] = True
+        if 'sgmii_enabled' in extra_state and extra_state['sgmii_enabled']:
+            print("%s %d is SGMII capable" % (porttype, port))
 
         sfp_state = SfpState(porttype, port, extra_state)
         if presence:
