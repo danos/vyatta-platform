@@ -1,8 +1,9 @@
-# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+# Copyright (c) 2019-2020, AT&T Intellectual Property.  All rights reserved.
 #
 # SPDX-License-Identifier: LGPL-2.1-only
 
 from abc import ABC, abstractmethod
+import time
 from vyatta.phy.phy import PhyBus
 from vyatta.phy.basephy import PhyException
 
@@ -30,6 +31,13 @@ class BaseSfpHelper(ABC):
     DMT_IMPL = 0x40
     # address change required?
     DMT_ADDR_CHNG_REQ = 0x4
+
+    # Common PHYs like the MVL88E1111 declare time from power on to
+    # register read/write available being 15 msec, but we assume the
+    # minimum granularity offered by the scheduler is in the order of
+    # 75 msec and this also gives a bit of a margin.
+    PHY_PROBE_TRIES = 1
+    PHY_PROBE_RETRY_TIME = 0.075 # 75 msec
 
     @abstractmethod
     def get_bus(self, porttype, port):
@@ -98,18 +106,19 @@ class BaseSfpHelper(ABC):
     def set_sgmii_enabled(self, porttype, port):
         is_sgmii = False
         try:
-            with self.get_bus(porttype, port) as bus:
-                try:
-                    phy = PhyBus.create_phy(bus)
-                    is_sgmii = phy.is_sgmii_capable(bus)
-                    if is_sgmii:
-                        phy.enable_sgmii(bus)
-                except PhyException as e:
-                    print(e)
-                    pass
+            for i in range(0, self.PHY_PROBE_TRIES):
+                with self.get_bus(porttype, port) as bus:
+                    try:
+                        phy = PhyBus.create_phy(bus)
+                        is_sgmii = phy.is_sgmii_capable(bus)
+                        if is_sgmii:
+                            phy.enable_sgmii(bus)
+                            break
+                    except PhyException as e:
+                        print(e)
+                    time.sleep(self.PHY_PROBE_RETRY_TIME)
         except SfpHelperException as e:
             print(e)
-            pass
         return is_sgmii
 
     def get_phy_link_status(self, porttype, port):
