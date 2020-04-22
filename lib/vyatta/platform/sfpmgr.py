@@ -98,6 +98,9 @@ class SfpStateManager(object):
     def _qsfp_eeprom_get_extra_state(self, port, sfp_state):
         try:
             content = self.sfphelper.read_eeprom('QSFP', port, offset=0, length=256)
+            # SFF-8636 Extended Identifier
+            sfp_state['rx_cdr_present'] = True if content[129] & 0x4 else False
+
             eth_1040100g = content[131]
             eth_extended_comp = content[192]
             sfp_state['eeprom_eth_1040100g'] = eth_1040100g
