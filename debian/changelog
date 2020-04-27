@@ -1,3 +1,9 @@
+vyatta-platform (2.4) unstable; urgency=medium
+
+  * sfpmgr: send indication of whether RX CDR is present to consumers
+
+ -- Robert Shearman <robert.shearman@att.com>  Mon, 27 Apr 2020 14:36:13 +0100
+
 vyatta-platform (2.3) unstable; urgency=medium
 
   * vyatta-sfp-util: fix use of --phy-speed-duplex-set option
