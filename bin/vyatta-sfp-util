@@ -115,6 +115,30 @@ def main(parser, args):
         print('Type: ' + resp['porttype'] + ', pages: ' + ', '.join('{:02x}'.format(int(b)) for b in pages))
         sys.exit(0)
 
+    if args.sfp_insert_remove:
+        if args.sfp_insert_remove[2] != 'true' and \
+           args.sfp_insert_remove[2] != 'false':
+            print('{} - should be either true or false'.format(
+                args.sfp_insert_remove[2]))
+            sys.exit(1)
+        if not args.port:
+            print("Missing port argument")
+            sys.exit(1)
+        req_json = {
+            'command': 'SFPINSERTEDREMOVED',
+            'portname': args.port,
+            'portid': args.sfp_insert_remove[0],
+            'porttype': args.sfp_insert_remove[1],
+            'inserted': True if args.sfp_insert_remove[2] == 'true' else False,
+            'extra_state': json.loads(args.sfp_insert_remove[3]),
+        }
+        req_sock.send_json(req_json)
+        resp = req_sock.recv_json()
+        if resp['result'] != 'OK':
+            print(resp['result'])
+            sys.exit(1)
+        sys.exit(0)
+
     parser.print_help()
     sys.exit(1)
 
@@ -138,6 +162,8 @@ if __name__ == '__main__':
                         help="Read EEPROM from given offset upto given length")
     group.add_argument("--query-eeprom", action='store_true',
                         help="Query EEPROM supported pages and type")
+    group.add_argument("--sfp-insert-remove", nargs=4,
+                        help="Trigger presence change for port - <PORTNUM> <PORTTYPE> <PRESENCE> <EXTRA_STATE>")
     parser.add_argument("--port", action='store',
                         help="Port to act upon")
     args = parser.parse_args()
