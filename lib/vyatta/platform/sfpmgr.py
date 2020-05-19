@@ -246,16 +246,30 @@ class SfpStateManager(object):
                                     'pages': pages })
 
     def _process_sfpinsertedremoved_command(self, json):
+        """ Process the message that says an sfp has been plugged/unplugged
+
+        This can be for unit testing purposes, or because it is more
+        convenient to monitor the plugging/unplugging from another
+        process.
+        """
         portname = json['portname']
         portid = json['portid']
-        inserted = json['inserted']
-
-        success = self.sfphelper.process_sfpinsertedremoved(portname, int(portid),
-                                                            inserted)
-        if success:
-            self.rep_socket.send_json({ 'result': 'OK' })
+        if 'porttype' in json:
+            porttype = json['porttype']
         else:
-            self.rep_socket.send_json({ 'result': 'FAILED' })
+            porttype = 'SFP'
+        inserted = json['inserted']
+        if 'extra_state' in json:
+            extra_state = json['extra_state']
+        else:
+            extra_state = None
+
+        # If the SFP helper supports a method processing this then
+        # call it, otherwise use the default on_sfp_presence_change
+        # action here, which is sufficient for testing purposes
+        self.sfphelper.process_sfpinsertedremoved(
+            portname, porttype, int(portid), inserted, extra_state)
+        self.rep_socket.send_json({ 'result': 'OK' })
 
     def process_rep_socket(self):
         '''

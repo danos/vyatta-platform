@@ -119,23 +119,6 @@ class InprocSfpHelper(BaseSfpHelper):
         except Exception as e:
             pass
 
-    def process_sfpinsertedremoved(self, portname, port, inserted):
-        """ Process the message that says an sfp has been plugged/unplugged
-
-        When an SFP is inserted on a Flexware platform the notification is
-        via a ZMQ message from the FAL. The message provides the port name
-        and whether it is inserted or removed.
-
-        Query the FAL to get the eeprom data and whether is supports SGMII
-        and then make changes based on that data.
-        """
-        try:
-            self.sfpd.on_sfp_presence_change(portname,
-                                             'SFP', port, inserted)
-        except Exception as e:
-            return False
-        return True
-
     def main_loop(self, file_evmask_tuple_list):
         p = select.poll()
 

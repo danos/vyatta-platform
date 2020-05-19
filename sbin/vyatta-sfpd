@@ -21,16 +21,21 @@ class SfpDaemon(object):
         self.sfpmgr = SfpStateManager(self.pub_endpoint, self.rep_endpoint,
                                       self.req_endpoint, self.sfphelper)
 
-    def on_sfp_presence_change(self, portname, porttype, port, presence):
+    def on_sfp_presence_change(self, portname, porttype, port, presence,
+                               extra_state=None):
         '''
         Called when sfphelper detects that the presence of a port has
         changed
         '''
-        extra_state={}
+        probe_for_state = False
+        if extra_state is None:
+            extra_state = {}
+            probe_for_state = True
         print("<%d>%s %d has been %splugged" % (5 if presence else 4, porttype, port, "" if presence else "un"), flush=True)
         # We can't tell if sgmii is supported by reading the eeprom so
         # try to enable it to find out if it is supported.
-        if presence and self.sfphelper.set_sgmii_enabled(porttype, port):
+        if presence and probe_for_state and \
+           self.sfphelper.set_sgmii_enabled(porttype, port):
             extra_state['sgmii_enabled'] = True
         if 'sgmii_enabled' in extra_state and extra_state['sgmii_enabled']:
             print("%s %d is SGMII capable" % (porttype, port))

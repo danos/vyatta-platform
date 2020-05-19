@@ -87,13 +87,13 @@ class BaseSfpHelper(ABC):
         """
         pass
 
-    def process_sfpinsertedremoved(self, port, inserted):
+    def process_sfpinsertedremoved(self, portname, porttype, port, inserted,
+                                   extra_state):
         """
-        Process a sfp inserted/removed msg from the FAL
-
-        Returns whether the message was successfully processed.
+        Process the message that says an sfp has been plugged/unplugged
         """
-        pass
+        self.sfpd.on_sfp_presence_change(portname, porttype,
+                                         port, inserted, extra_state)
 
     def set_sgmii_enabled(self, porttype, port):
         is_sgmii = False
