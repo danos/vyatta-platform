@@ -1,3 +1,11 @@
+vyatta-platform (2.5) unstable; urgency=medium
+
+  * vyatta-sfpd: allow all SFP helpers to trigger insert/remove from command
+  * vyatta-sfp-util: add support for --sfp-insert-remove option
+    (Fixes: VRVDR-51235)
+
+ -- Robert Shearman <robert.shearman@att.com>  Wed, 20 May 2020 13:13:24 +0100
+
 vyatta-platform (2.4) unstable; urgency=medium
 
   * sfpmgr: send indication of whether RX CDR is present to consumers
