@@ -22,6 +22,13 @@ class DefaultPlatform(object):
         """
         return True
 
+    def is_hw_router_interface_capable(self):
+        """
+        Determine if this platform is capable of supporting router interfaces
+        in the HW.
+        """
+        return False
+
     def get_platform_string(self):
         """
         Get a string that identifies the platform. This should be in

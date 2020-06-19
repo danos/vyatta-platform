@@ -43,6 +43,7 @@ Description: Vyatta SFP management daemon
 Package: python3-vyatta-platform-detect
 Architecture: all
 Depends: ${misc:Depends}, ${python3:Depends}, dmidecode
+Provides: detect-hw-router-intf-cap,
 Description: Vyatta platform detection python3 library
  Library containing classes for detecting the platform and associated helpers
 
