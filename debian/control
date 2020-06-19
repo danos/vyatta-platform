@@ -53,5 +53,7 @@ Depends:
  ${misc:Depends},
  python3-vyatta-platform-detect,
  python3,
+ detect-hw-router-intf-cap,
+Provides: plat-util-hw-router-intf-cap,
 Description: Vyatta platform query and configure utility
  Tool for querying platform properties and system setup

@@ -33,6 +33,17 @@ def main(args):
 
         sys.exit(0 if is_switch else 1)
 
+    if args.query_is_hw_router_intf_supported:
+        is_hw_router_intf_supported = False
+        try:
+            platform = detect()
+            is_hw_router_intf_supported = platform.is_hw_router_interface_capable()
+        except PlatformError as e:
+            LOG.debug('determining HW router intf support gave ' + repr(e))
+            pass
+
+        sys.exit(0 if is_hw_router_intf_supported else 1)
+
     if args.configure_dataplane:
         try:
             platform = detect()
@@ -66,6 +77,8 @@ if __name__ == '__main__':
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--query-is-switch", action='store_true',
                         help="Query whether the platform defaults to a switch. If not, then it's a router")
+    group.add_argument("--query-is-hw-router-intf-supported", action='store_true',
+                        help="Query whether the platform supports router interfaces in the hardware")
     group.add_argument("--configure-dataplane", metavar='CONFFILE',
                         help="Configure the dataplane to make use of the platform")
     group.add_argument("--what-am-i", action='store_true',
