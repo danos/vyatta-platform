@@ -1,3 +1,11 @@
+vyatta-platform (2.6) unstable; urgency=medium
+
+  [ Mandeep Rohilla ]
+  * Plat detect: Detect router intf support in the HW
+  * Plat util: Utility to query router intf support in the HW
+
+ -- Robert Shearman <robert.shearman@att.com>  Mon, 22 Jun 2020 16:49:34 +0100
+
 vyatta-platform (2.5) unstable; urgency=medium
 
   * vyatta-sfpd: allow all SFP helpers to trigger insert/remove from command
