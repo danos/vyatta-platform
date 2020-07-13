@@ -49,6 +49,9 @@ class Marvell88E1111Phy(BasePhy):
     ADV_10FD = 1 << 6
     ADV_10HD = 1 << 5
 
+    STS_1000FD = 1 << 11
+    STS_1000HD = 1 << 10
+
     def is_sgmii_capable(self, bus):
         return True
 
@@ -115,32 +118,32 @@ class Marvell88E1111Phy(BasePhy):
         if an_caps & self.ADV_10HD:
             caps['10half'] = True
 
-        gbaset = bus.read_word_data(self.PHYADDR, self.REG_1000BASET_STS)
-        if gbaset & 0x0008:
+        gbaset = socket.ntohs(bus.read_word_data(self.PHYADDR, self.REG_1000BASET_STS))
+        if gbaset & self.STS_1000FD:
             caps['1000full'] = True
-        if gbaset & 0x0004:
+        if gbaset & self.STS_1000HD:
             caps['1000half'] = True
 
         return caps
 
     def get_linkstatus(self, bus):
-        phy_sts = bus.read_word_data(self.PHYADDR, self.REG_PHY_STS)
+        phy_sts = socket.ntohs(bus.read_word_data(self.PHYADDR, self.REG_PHY_STS))
         link_str = 'down'
         speed = 0
         duplex = 'unknown'
-        if phy_sts & 0x0004:
+        if phy_sts & 0x0400:
             link_str = 'up'
         # If speed and duplex resolved
-        if phy_sts & 0x0008:
-            if phy_sts & 0x0020:
+        if phy_sts & 0x0800:
+            if phy_sts & 0x2000:
                 duplex = 'full'
             else:
                 duplex = 'half'
-            if phy_sts & 0x00c0 == 0x0000:
+            if phy_sts & 0xc000 == 0x0000:
                 speed = 10
-            elif phy_sts & 0x00c0 == 0x0040:
+            elif phy_sts & 0xc000 == 0x4000:
                 speed = 100
-            elif phy_sts & 0x00c0 == 0x0080:
+            elif phy_sts & 0xc000 == 0x8000:
                 speed = 1000
 
         return (link_str, speed, duplex)
