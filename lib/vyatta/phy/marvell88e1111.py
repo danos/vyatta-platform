@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+# Copyright (c) 2019-2020, AT&T Intellectual Property.  All rights reserved.
 #
 # SPDX-License-Identifier: LGPL-2.1-only
 # **** End License ****
 
 from vyatta.phy.basephy import BasePhy
+import socket
 
 class Marvell88E1111Phy(BasePhy):
+    '''
+    Driver for Marvell 88E1111 PHY
+
+    See 88E111 Datasheet for reference
+    '''
     PHYID = 0x01410cc0
     PHYMASK = 0xfffffff0
     PHYADDR = 0x56 # 0xAC >> 1
@@ -19,14 +25,44 @@ class Marvell88E1111Phy(BasePhy):
     REG_PHY_STS = 0x11
     REG_EX_PHY_STATUS = 0x1b
 
+    HWCFG_MODE_MASK = 0xf
+    # SGMII without Clock with SGMII Auto-Neg to copper
+    HWCFG_MODE_SGMII_NO_CLOCK = 0x4
+    FIBER_COPPER_AS_MASK = 1 << 15
+    # Fiber/Copper Auto Selection Disable
+    FIBER_COPPER_AS_DISABLE = 1 << 15
+
+    # PHY Software Reset
+    CTRL_RESET = 0x8000
+    # Auto-Negotiation Enable
+    CTRL_AN_ENABLE = 1 << 12
+
+    # Advertise 1000BASE-T full duplex
+    CTRL_1000BASE_T_FD = 1 << 9
+    # Advertise 1000BASE-T half duplex
+    CTRL_1000BASE_T_HD = 1 << 8
+
     def is_sgmii_capable(self, bus):
         return True
 
+    def _phy_modify_reg(self, bus, reg, mask, value):
+        '''
+        Modify a PHY register, masking off bits and or'ing in a new value
+
+        Mask and value should be in host endian form.
+        '''
+        exist_value = socket.ntohs(bus.read_word_data(self.PHYADDR, reg))
+        new_value = (exist_value & ~mask) | value
+        bus.write_word_data(self.PHYADDR, reg, socket.htons(new_value))
+
     def enable_sgmii(self, bus):
-        # Set HWCFG_MODE = SGMII without Clock with SGMII Auto-Neg to copper
-        bus.write_word_data(self.PHYADDR, self.REG_EX_PHY_STATUS, 0x8490)
-        # Set Reset = 1
-        bus.write_word_data(self.PHYADDR, self.REG_CTRL, 0x4081)
+        self._phy_modify_reg(bus, self.REG_EX_PHY_STATUS,
+                             self.HWCFG_MODE_MASK | self.FIBER_COPPER_AS_MASK,
+                             self.HWCFG_MODE_SGMII_NO_CLOCK | self.FIBER_COPPER_AS_DISABLE)
+        # Commit the hardware config mode and fiber/copper
+        # auto-selection changes by performing a soft reset
+        self._phy_modify_reg(bus, self.REG_CTRL, 0, self.CTRL_RESET)
+
         self.set_autoneg_caps(bus, {'1000full': True, '1000half': True, '100full': True, '100half': True, '10full': True, '10half': True })
 
     def set_autoneg_caps(self, bus, speeds):
