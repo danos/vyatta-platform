@@ -65,13 +65,29 @@ class Marvell88E1111Phy(BasePhy):
         new_value = (exist_value & ~mask) | value
         bus.write_word_data(self.PHYADDR, reg, socket.htons(new_value))
 
+    def _phy_soft_reset(self, bus):
+        '''
+        Perform a software reset and wait for it to complete
+        '''
+        self._phy_modify_reg(bus, self.REG_CTRL, 0, self.CTRL_RESET)
+
+        # From 802.3 22.2.4.1.1: The reset process shall be completed
+        # within 0.5 s from the setting of bit 0.15
+        # So we shoot a bit over to 0.525s
+        for i in range(0, 600, 75):
+            if not (socket.ntohs(bus.read_word_data(self.PHYADDR, self.REG_CTRL)) & self.CTRL_RESET):
+                return
+            # 75ms
+            sleep(0.075)
+        raise PhyAccessException("reset timed out")
+
     def enable_sgmii(self, bus):
         self._phy_modify_reg(bus, self.REG_EX_PHY_STATUS,
                              self.HWCFG_MODE_MASK | self.FIBER_COPPER_AS_MASK,
                              self.HWCFG_MODE_SGMII_NO_CLOCK | self.FIBER_COPPER_AS_DISABLE)
         # Commit the hardware config mode and fiber/copper
         # auto-selection changes by performing a soft reset
-        self._phy_modify_reg(bus, self.REG_CTRL, 0, self.CTRL_RESET)
+        self._phy_soft_reset(bus)
 
         self.set_autoneg_caps(bus, {'1000full': True, '1000half': True, '100full': True, '100half': True, '10full': True, '10half': True })
 
