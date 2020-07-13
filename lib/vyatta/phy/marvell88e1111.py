@@ -117,9 +117,10 @@ class Marvell88E1111Phy(BasePhy):
                              self.CTRL_1000BASE_T_FD | self.CTRL_1000BASE_T_HD,
                              gbaset)
 
-        # Set Reset, Auto-Negotiation Enable
-        self._phy_modify_reg(bus, self.REG_CTRL, 0,
-                             self.CTRL_AN_ENABLE | self.CTRL_RESET)
+        self._phy_modify_reg(bus, self.REG_CTRL, 0, self.CTRL_AN_ENABLE)
+
+        # Commit the auto-neg enablement and advertisement changes
+        self._phy_soft_reset(bus)
 
     def get_linkpartner_caps(self, bus):
         caps = {}
