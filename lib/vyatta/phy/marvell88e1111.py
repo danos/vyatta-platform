@@ -42,6 +42,13 @@ class Marvell88E1111Phy(BasePhy):
     # Advertise 1000BASE-T half duplex
     CTRL_1000BASE_T_HD = 1 << 8
 
+    ADV_ASYM_PAUSE = 1 << 11
+    ADV_PAUSE = 1 << 10
+    ADV_100FD = 1 << 8
+    ADV_100HD = 1 << 7
+    ADV_10FD = 1 << 6
+    ADV_10HD = 1 << 5
+
     def is_sgmii_capable(self, bus):
         return True
 
@@ -66,42 +73,46 @@ class Marvell88E1111Phy(BasePhy):
         self.set_autoneg_caps(bus, {'1000full': True, '1000half': True, '100full': True, '100half': True, '10full': True, '10half': True })
 
     def set_autoneg_caps(self, bus, speeds):
-        # Asymmetric Pause, Pause, Selector Field = 802.3
-        an_adv = 0x010c
-        gbaset = bus.read_word_data(self.PHYADDR, self.REG_1000BASET_CTRL)
-
+        an_adv = self.ADV_PAUSE | self.ADV_ASYM_PAUSE
         if speeds.get('100full', False):
-            an_adv |= 0x0001
+            an_adv |= self.ADV_100FD
         if speeds.get('100half', False):
-            an_adv |= 0x8000
+            an_adv |= self.ADV_100HD
         if speeds.get('10full', False):
-            an_adv |= 0x4000
+            an_adv |= self.ADV_10FD
         if speeds.get('10half', False):
-            an_adv |= 0x2000
+            an_adv |= self.ADV_10HD
 
-        gbaset = gbaset & ~0x0003
+        gbaset = 0
         if speeds.get('1000full', False):
-            gbaset |= 0x0001
+            gbaset |= self.CTRL_1000BASE_T_FD
         if speeds.get('1000half', False):
-            gbaset |= 0x0002
+            gbaset |= self.CTRL_1000BASE_T_HD
 
-        bus.write_word_data(self.PHYADDR, self.REG_AUTONEG_ADV, an_adv)
-        bus.write_word_data(self.PHYADDR, self.REG_1000BASET_CTRL, gbaset)
+        self._phy_modify_reg(bus, self.REG_AUTONEG_ADV,
+                             self.ADV_PAUSE | self.ADV_ASYM_PAUSE |
+                             self.ADV_100FD | self.ADV_100HD | self.ADV_10FD |
+                             self.ADV_10HD,
+                             an_adv)
+        self._phy_modify_reg(bus, self.REG_1000BASET_CTRL,
+                             self.CTRL_1000BASE_T_FD | self.CTRL_1000BASE_T_HD,
+                             gbaset)
 
         # Set Reset, Auto-Negotiation Enable
-        bus.write_word_data(self.PHYADDR, self.REG_CTRL, 0x4091)
+        self._phy_modify_reg(bus, self.REG_CTRL, 0,
+                             self.CTRL_AN_ENABLE | self.CTRL_RESET)
 
     def get_linkpartner_caps(self, bus):
         caps = {}
-        an_caps = bus.read_word_data(self.PHYADDR, self.REG_LPABIL)
+        an_caps = socket.ntohs(bus.read_word_data(self.PHYADDR, self.REG_LPABIL))
 
-        if an_caps & 0x0001:
+        if an_caps & self.ADV_100FD:
             caps['100full'] = True
-        if an_caps & 0x8000:
+        if an_caps & self.ADV_100HD:
             caps['100half'] = True
-        if an_caps & 0x4000:
+        if an_caps & self.ADV_10FD:
             caps['10full'] = True
-        if an_caps & 0x2000:
+        if an_caps & self.ADV_10HD:
             caps['10half'] = True
 
         gbaset = bus.read_word_data(self.PHYADDR, self.REG_1000BASET_STS)
