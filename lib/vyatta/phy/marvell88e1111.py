@@ -146,10 +146,10 @@ class Marvell88E1111Phy(BasePhy):
         return (link_str, speed, duplex)
 
     def set_speed_duplex(self, bus, speed, duplex):
-        ctrl_reg_val = 0x0080
+        ctrl_reg_val = self.CTRL_RESET
         speed_to_regval = {
-            1000: 0x4000,
-            100: 0x0020,
+            1000: 0x0040,
+            100: 0x2000,
             10: 0x0000,
         }
         ctrl_reg_val |= speed_to_regval[speed]
@@ -157,5 +157,5 @@ class Marvell88E1111Phy(BasePhy):
             # bit 8 = 0
             pass
         else:
-            ctrl_reg_val |= 0x0001
-        bus.write_word_data(self.PHYADDR, self.REG_CTRL, ctrl_reg_val)
+            ctrl_reg_val |= 0x0100
+        self._phy_modify_reg(bus, self.REG_CTRL, 0x2140 | self.CTRL_AN_ENABLE, ctrl_reg_val)
