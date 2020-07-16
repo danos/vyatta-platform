@@ -1,4 +1,4 @@
-# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+# Copyright (c) 2019-2020, AT&T Intellectual Property.  All rights reserved.
 #
 # SPDX-License-Identifier: LGPL-2.1-only
 
@@ -7,6 +7,7 @@ import json
 import select
 import os
 import base64
+import systemd.daemon
 from vyatta.platform.basesfphelper import SfpHelperException
 from vyatta.platform.basesfphelper import ModuleNotPresentException
 
@@ -38,6 +39,9 @@ class SfpStateManager(object):
             # for clients not running as the same user to use it
             os.chmod(pub_endpoint[6:], 0o770)
         self.rep_socket = self._ctx.socket(zmq.REP)
+        listen_fds = systemd.daemon.listen_fds()
+        if len(listen_fds) >= 1:
+            self.rep_socket.set(zmq.USE_FD, listen_fds[0])
         self.rep_socket.bind(rep_endpoint)
         if rep_endpoint.startswith("ipc://"):
             # Make it user/group readable/writable so it's possible
