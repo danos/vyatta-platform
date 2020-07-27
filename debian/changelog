@@ -1,3 +1,20 @@
+vyatta-platform (2.7) unstable; urgency=medium
+
+  * marvell88e1111: modify registers instead of setting during SGMII enable
+  * marvell88e1111: modify registers instead of setting during AN caps setting
+  * marvell88e1111: modify registers instead of setting during speed setting
+  * marvel88e1111: use host-endian values for caps and link status
+  * marvell88e1111: wait for reset to complete during SGMII init
+  * marvell88e1111: wait for reset to complete during setting of AN caps
+  * marvell88e1111: wait for reset to complete during force speed setting
+  * vyatta-sfpd: be more selective about the PHY discovery for SFPs
+  * basesfphelper: make probing for SFPs with PHYs more reliable
+  * sfpmgr.py: take into account socket activation when binding to rep
+    (Fixes: VRVDR-52242)
+  * vyatta-sfpd: use unbuffered stdout/stderr
+
+ -- Robert Shearman <robert.shearman@att.com>  Mon, 27 Jul 2020 11:28:06 +0100
+
 vyatta-platform (2.6) unstable; urgency=medium
 
   [ Mandeep Rohilla ]
