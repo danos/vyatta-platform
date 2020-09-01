@@ -1,3 +1,9 @@
+vyatta-platform (2.8) UNRELEASED; urgency=medium
+
+  * vyatta-platform-util: add --am-i option
+
+ -- Duncan Eastoe <duncan.eastoe@att.com>  Tue, 01 Sep 2020 11:49:57 +0100
+
 vyatta-platform (2.7) unstable; urgency=medium
 
   * marvell88e1111: modify registers instead of setting during SGMII enable

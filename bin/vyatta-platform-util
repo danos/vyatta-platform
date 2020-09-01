@@ -2,7 +2,7 @@
 
 # Module: vyatta-platform
 # **** License ****
-# Copyright (c) 2019, AT&T Intellectual Property.  All rights reserved.
+# Copyright (c) 2019-2020, AT&T Intellectual Property.  All rights reserved.
 #
 # SPDX-License-Identifier: LGPL-2.1-only
 # **** End License ****
@@ -61,6 +61,15 @@ def main(args):
             print('unknown')
             pass
 
+    if args.am_i:
+        try:
+            platform = detect().get_platform_string()
+        except PlatformError as e:
+            LOG.debug('determining switch gave ' + repr(e))
+            platform = "unknown"
+
+        sys.exit(0 if platform == args.am_i else 1)
+
     if args.format_platform_state:
         try:
             platform = detect()
@@ -83,6 +92,8 @@ if __name__ == '__main__':
                         help="Configure the dataplane to make use of the platform")
     group.add_argument("--what-am-i", action='store_true',
                         help="Return a string that identifies the platform")
+    group.add_argument("--am-i",
+                       help="Return 0 if I identify as the given platform, else return 1")
     group.add_argument("--format-platform-state", metavar='COMMAND',
                         help="Format state specific for a platform for display to a user. State is passed via stdin")
     parser.add_argument("--debug", action='store_true',

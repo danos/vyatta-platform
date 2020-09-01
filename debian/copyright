@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
 Files: *
-Copyright: 2019, AT&T Intellectual Property.
+Copyright: 2019-2020, AT&T Intellectual Property.
 License: LGPL-2.1
  This library is free software; you can redistribute it
  and/or modify it under the terms of the GNU Lesser General Public
