@@ -1,8 +1,9 @@
-vyatta-platform (2.8) UNRELEASED; urgency=medium
+vyatta-platform (2.8) unstable; urgency=medium
 
+  [ Duncan Eastoe ]
   * vyatta-platform-util: add --am-i option
 
- -- Duncan Eastoe <duncan.eastoe@att.com>  Tue, 01 Sep 2020 11:49:57 +0100
+ -- Robert Shearman <robert.shearman@att.com>  Wed, 02 Sep 2020 12:03:46 +0100
 
 vyatta-platform (2.7) unstable; urgency=medium
 
