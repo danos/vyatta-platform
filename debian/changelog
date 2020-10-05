@@ -1,3 +1,10 @@
+vyatta-platform (2.9) unstable; urgency=medium
+
+  [ Charles (Chas) Williams ]
+  * debian: add platform name service
+
+ -- Robert Shearman <robert.shearman@att.com>  Mon, 05 Oct 2020 19:16:17 +0100
+
 vyatta-platform (2.8) unstable; urgency=medium
 
   [ Duncan Eastoe ]
