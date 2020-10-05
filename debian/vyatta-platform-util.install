@@ -1,2 +1,1 @@
 bin/vyatta-platform-util opt/vyatta/bin/
-debian/vyatta-platform-name.service lib/systemd/system
