@@ -1,3 +1,11 @@
+vyatta-platform (2.10) unstable; urgency=medium
+
+  [ Charles (Chas) Williams ]
+  * Revert "debian: add platform name service"
+  * debian: add platform name service (Bugfix: VRVDR-50274)
+
+ -- Robert Shearman <robert.shearman@att.com>  Tue, 06 Oct 2020 14:05:09 +0100
+
 vyatta-platform (2.9) unstable; urgency=medium
 
   [ Charles (Chas) Williams ]
