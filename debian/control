@@ -10,6 +10,12 @@ Build-Depends: debhelper (>=9),
 Standards-Version: 3.9.6
 X-Python3-Version: >= 3.3
 
+Package: python3-vyatta-platform-utils
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-smbus
+Description: Vyatta python platform libraries
+ Python util libraries useful across multiple platform
+
 Package: python3-vyatta-phy
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}, python3-smbus
