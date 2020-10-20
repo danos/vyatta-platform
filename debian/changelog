@@ -1,3 +1,13 @@
+vyatta-platform (2.11) unstable; urgency=medium
+
+  [ Duncan Eastoe ]
+  * vyatta-sfpd.service: Ignore `modprobe -r` failure
+
+  [ Shweta Choudaha ]
+  * utils: Add python util library functions
+
+ -- Robert Shearman <robert.shearman@att.com>  Tue, 20 Oct 2020 21:02:56 +0100
+
 vyatta-platform (2.10) unstable; urgency=medium
 
   [ Charles (Chas) Williams ]
