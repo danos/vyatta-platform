@@ -2,9 +2,8 @@ Source: vyatta-platform
 Section: contrib/net
 Priority: optional
 Maintainer: Vyatta Package Maintainers <DL-vyatta-help@att.com>
-Build-Depends: debhelper (>=9),
+Build-Depends: debhelper (>=9.20160709),
                dh-python,
-               dh-systemd,
                python3,
                python3-all,
 Standards-Version: 3.9.6
