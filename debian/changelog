@@ -1,3 +1,10 @@
+vyatta-platform (2.12) unstable; urgency=medium
+
+  [ Nicholas Brown ]
+  * dh-systemd is part of debhelper
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Wed, 10 Mar 2021 18:20:36 -0500
+
 vyatta-platform (2.11) unstable; urgency=medium
 
   [ Duncan Eastoe ]
