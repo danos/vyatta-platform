@@ -5,7 +5,7 @@ After=system-preconfigure.service
 Before=vyatta-dataplane.service
 
 [Service]
-ExecStart=/usr/sbin/vyatta-sfpd ipc:///var/run/vyatta/sfp_pub.socket ipc:///var/run/vyatta/sfp_rep.socket ipc:///var/run/vyatta/sfp_req.socket
+ExecStart=/usr/sbin/vyatta-sfpd ipc:///var/run/vyatta/sfp_pub.socket ipc:///var/run/vyatta/sfp_rep.socket ipc:///var/run/vyatta/sfp_req.socket ipc:///var/run/vyatta/sfp_monitor.socket
 ExecStopPost=-/sbin/modprobe -r gpio15_intr
 Restart=on-failure
 User=root

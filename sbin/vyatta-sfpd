@@ -1,9 +1,10 @@
 #!/usr/bin/python3 -u
 # -*- coding: utf-8 -*-
-# Copyright (c) 2019-2020, AT&T Intellectual Property.  All rights reserved.
+# Copyright (c) 2019-2021, AT&T Intellectual Property.  All rights reserved.
 #
 # SPDX-License-Identifier: LGPL-2.1-only
 
+import zmq
 import select
 import subprocess
 import sys
@@ -11,15 +12,128 @@ from vyatta.platform.sfpmgr import SfpStateManager
 from vyatta.phy.phy import PhyBus
 from vyatta.phy.basephy import PhyException
 from vyatta.platform.detect import PlatformError, detect
+import configparser
+from collections import defaultdict
+import os
+
+sfpd_presence_file = '/var/run/vyatta/sfpd-presence'
+
+#
+# EEPROM offsets per type
+#
+eeprom_fields = defaultdict(lambda: defaultdict(dict))
+eeprom_fields['SFP'] = {'start':20, 'length':40}
+eeprom_fields['SFP']['v_name'] = {'start':0,  'end':16, 'format':'utf-8' }
+eeprom_fields['SFP']['v_oui']  = {'start':17, 'end':20, 'format':'hex' }
+eeprom_fields['SFP']['v_part'] = {'start':20, 'end':36, 'format':'utf-8' }
+eeprom_fields['SFP']['v_rev']  = {'start':36, 'end':40, 'format':'utf-8'}
+
+eeprom_fields['QSFP'] = {'start':148, 'length':38}
+eeprom_fields['QSFP']['v_name'] = {'start':0,  'end':16, 'format':'utf-8' }
+eeprom_fields['QSFP']['v_oui']  = {'start':17, 'end':20, 'format':'hex' }
+eeprom_fields['QSFP']['v_part'] = {'start':20, 'end':36, 'format':'utf-8' }
+eeprom_fields['QSFP']['v_rev']  = {'start':36, 'end':38, 'format':'utf-8' }
 
 class SfpDaemon(object):
-    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, helper_module):
+    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, monitor_endpoint, helper_module):
+        self._ctx = zmq.Context.instance()
+        self._ctx.IPV6 = 1
+        self._ctx.LINGER = 0
+        self.restarted = False
+        self.boot_walk_complete_notified = False
         self.pub_endpoint = pub_endpoint
         self.rep_endpoint = rep_endpoint
         self.req_endpoint = req_endpoint
+        self.monitor_endpoint = monitor_endpoint
         self.sfphelper = helper_module.new_helper(self)
         self.sfpmgr = SfpStateManager(self.pub_endpoint, self.rep_endpoint,
                                       self.req_endpoint, self.sfphelper)
+        self.sfp_presence = defaultdict(lambda: defaultdict(dict))
+        self.monitor_socket = self._ctx.socket(zmq.PUB)
+        self.monitor_socket.bind(monitor_endpoint)
+        if monitor_endpoint.startswith("ipc://"):
+            # Make it user/group readable/writable so it's possible
+            # for clients not running as the same user to use it
+            os.chmod(monitor_endpoint[6:], 0o770)
+
+    def get_vendor_field(self, data, porttype, fieldname):
+        start  = eeprom_fields[porttype][fieldname]['start']
+        end    = eeprom_fields[porttype][fieldname]['end']
+        format = eeprom_fields[porttype][fieldname]['format']
+
+        if format == 'utf-8':
+            return data[start:end].decode('utf-8').rstrip()
+        elif format == 'hex':
+            return data[start:end].hex()
+        else:
+            return None
+
+    def get_vendor_data(self, porttype, port):
+        start = eeprom_fields[porttype]['start']
+        length = eeprom_fields[porttype]['length']
+        data = self.sfphelper.read_eeprom(porttype, port, offset=start, length=length)
+
+        return self.get_vendor_field(data, porttype, 'v_name'), \
+            self.get_vendor_field(data, porttype, 'v_oui'), \
+            self.get_vendor_field(data, porttype, 'v_part'), \
+            self.get_vendor_field(data, porttype, 'v_rev')
+
+    def write_presence_file(self):
+        presence_file = configparser.ConfigParser()
+        for typekey, typeval in self.sfp_presence.items():
+            for portkey, portval in typeval.items():
+
+                section_int = portval['port']
+                if portval['port_type'] == 'QSFP':
+                    section_int = section_int + 128
+                section = str(section_int)
+                presence_file.add_section(section)
+
+                presence_file[section]['port_name']      = portval['port_name']
+                presence_file[section]['vendor_name']    = portval['vendor_name']
+                presence_file[section]['vendor_oui']     = portval['vendor_oui']
+                presence_file[section]['part_id']        = portval['vendor_part_id']
+                presence_file[section]['vendor_rev']     = portval['vendor_rev']
+                presence_file[section]['detection_time'] = portval['time']
+
+        with open(sfpd_presence_file, 'w') as f:
+            os.chmod(sfpd_presence_file, 0o644)
+            presence_file.write(f)
+
+        print('Notifying dataplane of SFP presence update\n')
+        self.monitor_socket.send_string('SFP_PRESENCE_NOTIFY')
+
+    def boot_walk_complete(self):
+        self.boot_walk_complete_notified = True
+        if not self.restarted:
+            self.write_presence_file()
+        else:
+            self.restarted = False
+
+    def record_presence_change(self, portname, porttype, port, presence):
+        print('Record presence {} for port {}\n'.format(presence, portname))
+        if presence:
+            with open('/proc/uptime') as f:
+                for line in f:
+                    seconds_since_boot = line.split('.')[0]
+
+            vname, oui, part, rev = self.get_vendor_data(porttype, port)
+
+            pinfo = self.sfp_presence[porttype][port]
+            pinfo['port'] = port
+            pinfo['port_type'] = porttype
+            pinfo['port_name'] = 'dp0' +  portname
+            pinfo['vendor_name'] = vname
+            pinfo['vendor_oui'] = '{}.{}.{}'.format(oui[0:2], oui[2:4], oui[4:6])
+            pinfo['vendor_part_id'] = part
+            pinfo['vendor_rev'] = rev
+            pinfo['time'] = seconds_since_boot
+        else:
+            if port in self.sfp_presence[porttype].keys():
+                del self.sfp_presence[porttype][port]
+
+        if self.boot_walk_complete_notified:
+            self.write_presence_file()
 
     def on_sfp_presence_change(self, portname, porttype, port, presence,
                                extra_state=None):
@@ -29,6 +143,7 @@ class SfpDaemon(object):
         '''
         print("<%d>%s %d has been %splugged" % (5 if presence else 4, porttype, port, "" if presence else "un"), flush=True)
         self.sfpmgr.on_sfp_presence_change(portname, porttype, port, presence, extra_state)
+        self.record_presence_change(portname, porttype, port, presence)
 
     def on_file_event(self, file, event):
         '''
@@ -41,11 +156,15 @@ class SfpDaemon(object):
             raise Exception("unexpected event for file {}".format(file))
 
     def main(self):
+        #
+        # If our presence file is already there, this must be a restart.
+        #
+        self.restarted = os.path.exists(sfpd_presence_file)
         self.sfphelper.main_loop([(self.sfpmgr.get_rep_socket_fd(), select.POLLIN)])
 
 def main():
-    if len(sys.argv) != 4:
-        print("\nUsage: " + sys.argv[0] + " <pub_endpoint> <rep_endpoint> <req_endpoint>")
+    if len(sys.argv) != 5:
+        print("\nUsage: " + sys.argv[0] + " <pub_endpoint> <rep_endpoint> <req_endpoint> <monitor_endpoint>")
         sys.exit(1)
 
     helper_module = None
@@ -57,7 +176,7 @@ def main():
     if helper_module is None:
         sys.exit(0)
 
-    sfpd = SfpDaemon(sys.argv[1], sys.argv[2], sys.argv[3], helper_module)
+    sfpd = SfpDaemon(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], helper_module)
     sfpd.main()
 
 if __name__ == "__main__":
