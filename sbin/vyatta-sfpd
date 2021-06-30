@@ -40,6 +40,8 @@ class SfpDaemon(object):
         self._ctx.IPV6 = 1
         self._ctx.LINGER = 0
         self.restarted = False
+        self.mismatch = False
+        self.epoch = 0
         self.boot_walk_complete_notified = False
         self.pub_endpoint = pub_endpoint
         self.rep_endpoint = rep_endpoint
@@ -80,9 +82,10 @@ class SfpDaemon(object):
 
     def write_presence_file(self):
         presence_file = configparser.ConfigParser()
+        presence_file.add_section('epoch')
+        presence_file['epoch']['value'] = str(self.epoch)
         for typekey, typeval in self.sfp_presence.items():
             for portkey, portval in typeval.items():
-
                 section_int = portval['port']
                 if portval['port_type'] == 'QSFP':
                     section_int = section_int + 128
@@ -103,15 +106,89 @@ class SfpDaemon(object):
         print('Notifying dataplane of SFP presence update\n')
         self.monitor_socket.send_string('SFP_PRESENCE_NOTIFY')
 
+    def read_presence_file(self):
+        '''
+        After daemon restart, re-read the presence file
+        '''
+        print('Reading SFP presence file\n')
+
+        existing = configparser.ConfigParser()
+        existing.read(sfpd_presence_file)
+        for section in existing.sections():
+            if section == 'epoch':
+                previous_epoch = int(existing['epoch']['value'])
+                self.epoch = previous_epoch + 1
+                continue
+
+            port = int(section)
+            if port < 128:
+                porttype = 'SFP'
+            else:
+                porttype = 'QSFP'
+                port -= 128
+
+            pinfo = self.sfp_presence[porttype][port]
+            pinfo['port'] = port
+            pinfo['port_type'] = porttype
+            pinfo['port_name'] = existing[section]['port_name']
+            pinfo['vendor_name'] = existing[section]['vendor_name']
+            pinfo['vendor_oui'] = existing[section]['vendor_oui']
+            pinfo['vendor_part_id'] = existing[section]['part_id']
+            pinfo['vendor_rev'] = existing[section]['vendor_rev']
+            pinfo['time'] = existing[section]['detection_time']
+            pinfo['epoch'] = previous_epoch
+
+    def sweep_stale(self, stype, port):
+        print('Sweeping stale entry {} {}\n'.format(stype, port))
+        del self.sfp_presence[stype][port]
+        self.swept = True
+
+    def new_epoch_sweep(self):
+        '''
+        After sfpd restart and boot walk is complete, purge stale entries
+        from presence dict.
+        '''
+        self.swept = False
+
+        # dict comprehension to generate stale dict from presence dict
+        stale = {
+            typekey: {
+                 portkey:portval for portkey, portval in typeval.items() if portval['epoch'] < self.epoch
+            }
+            for typekey,typeval in self.sfp_presence.items()
+        }
+
+        # dict comprehension to delete stale entries from presence dict
+        temp = {
+            typekey: {
+                portkey: self.sweep_stale(typekey, portkey) for portkey, portval in typeval.items()
+            }
+            for typekey,typeval in stale.items()
+        }
+
+        return self.swept
+
     def boot_walk_complete(self):
         self.boot_walk_complete_notified = True
-        if not self.restarted:
-            self.write_presence_file()
-        else:
+        save = True
+        if self.restarted:
             self.restarted = False
+            save = self.new_epoch_sweep() or self.mismatch
+
+        if save:
+            self.write_presence_file()
+
+        self.mismatch = False
 
     def record_presence_change(self, portname, porttype, port, presence):
         print('Record presence {} for port {}\n'.format(presence, portname))
+        if port in self.sfp_presence[porttype].keys():
+            exists = True
+            if presence:
+                old_pinfo = self.sfp_presence[porttype][port].copy()
+        else:
+            exists = False
+
         if presence:
             with open('/proc/uptime') as f:
                 for line in f:
@@ -127,10 +204,29 @@ class SfpDaemon(object):
             pinfo['vendor_oui'] = '{}.{}.{}'.format(oui[0:2], oui[2:4], oui[4:6])
             pinfo['vendor_part_id'] = part
             pinfo['vendor_rev'] = rev
-            pinfo['time'] = seconds_since_boot
+            pinfo['epoch'] = self.epoch
         else:
-            if port in self.sfp_presence[porttype].keys():
+            if exists:
                 del self.sfp_presence[porttype][port]
+
+        #
+        # If this is a restart and the dictionary entry already exists,
+        # there is a mismatch if the details (apart from epoch) are not
+        # the same when entry inserted or existing entry removed.
+        # Save and notify if mismatch.
+        #
+        if presence:
+            if self.restarted and exists:
+                old_pinfo['epoch'] = pinfo['epoch']
+                if pinfo != old_pinfo:
+                    self.mismatch = True
+                    print('Port {} mismatch since daemon restart\n'.format(portname))
+                    pinfo['time'] = seconds_since_boot
+            else:
+                pinfo['time'] = seconds_since_boot
+        else:
+            if self.restarted and exists:
+                self.mismatch = True
 
         if self.boot_walk_complete_notified:
             self.write_presence_file()
@@ -160,6 +256,8 @@ class SfpDaemon(object):
         # If our presence file is already there, this must be a restart.
         #
         self.restarted = os.path.exists(sfpd_presence_file)
+        if self.restarted:
+            self.read_presence_file()
         self.sfphelper.main_loop([(self.sfpmgr.get_rep_socket_fd(), select.POLLIN)])
 
 def main():
