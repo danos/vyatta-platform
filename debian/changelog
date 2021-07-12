@@ -1,3 +1,11 @@
+vyatta-platform (2.13) unstable; urgency=medium
+
+  [ Thomas Kiely ]
+  * maintain sfp presence database - notify changes to dataplane
+  * Verify presence database upon SFPD restart
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Mon, 12 Jul 2021 18:47:43 -0400
+
 vyatta-platform (2.12) unstable; urgency=medium
 
   [ Nicholas Brown ]
