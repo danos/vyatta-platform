@@ -12,6 +12,7 @@ from vyatta.platform.sfpmgr import SfpStateManager
 from vyatta.phy.phy import PhyBus
 from vyatta.phy.basephy import PhyException
 from vyatta.platform.detect import PlatformError, detect
+from vyatta.platform.basesfphelper import ModuleNotPresentException
 import configparser
 from collections import defaultdict
 import os
@@ -73,7 +74,11 @@ class SfpDaemon(object):
     def get_vendor_data(self, porttype, port):
         start = eeprom_fields[porttype]['start']
         length = eeprom_fields[porttype]['length']
-        data = self.sfphelper.read_eeprom(porttype, port, offset=start, length=length)
+        try:
+            data = self.sfphelper.read_eeprom(porttype, port, offset=start, length=length)
+        except ModuleNotPresentException:
+            print('Failed to read vendor data from EEPROM: {} {}\n'.format(porttype, port))
+            return 'Unknown', '000000', 'Unknown', 'Unknown'
 
         return self.get_vendor_field(data, porttype, 'v_name'), \
             self.get_vendor_field(data, porttype, 'v_oui'), \
