@@ -1,3 +1,10 @@
+vyatta-platform (2.14) unstable; urgency=medium
+
+  [ Thomas Kiely ]
+  * Protect EEPROM read with exception handling
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Wed, 28 Jul 2021 14:14:55 -0400
+
 vyatta-platform (2.13) unstable; urgency=medium
 
   [ Thomas Kiely ]
