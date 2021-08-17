@@ -43,6 +43,7 @@ class SfpDaemon(object):
         self.restarted = False
         self.mismatch = False
         self.epoch = 0
+        self.boot_scan_end_time = 0;
         self.boot_walk_complete_notified = False
         self.pub_endpoint = pub_endpoint
         self.rep_endpoint = rep_endpoint
@@ -89,6 +90,8 @@ class SfpDaemon(object):
         presence_file = configparser.ConfigParser()
         presence_file.add_section('epoch')
         presence_file['epoch']['value'] = str(self.epoch)
+        presence_file.add_section('boot_scan_end_time')
+        presence_file['boot_scan_end_time']['value'] = str(self.boot_scan_end_time)
         for typekey, typeval in self.sfp_presence.items():
             for portkey, portval in typeval.items():
                 section_int = portval['port']
@@ -123,6 +126,10 @@ class SfpDaemon(object):
             if section == 'epoch':
                 previous_epoch = int(existing['epoch']['value'])
                 self.epoch = previous_epoch + 1
+                continue
+            if section == 'boot_scan_end_time':
+                self.boot_scan_end_time = int(
+                    existing['boot_scan_end_time']['value'])
                 continue
 
             port = int(section)
@@ -179,6 +186,10 @@ class SfpDaemon(object):
         if self.restarted:
             self.restarted = False
             save = self.new_epoch_sweep() or self.mismatch
+        else:
+            with open('/proc/uptime') as f:
+                for line in f:
+                    self.boot_scan_end_time = line.split('.')[0]
 
         if save:
             self.write_presence_file()
