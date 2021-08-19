@@ -253,7 +253,9 @@ class SfpDaemon(object):
         Called when sfphelper detects that the presence of a port has
         changed
         '''
-        print("<%d>%s %d has been %splugged" % (5 if presence else 4, porttype, port, "" if presence else "un"), flush=True)
+        _, _, part, _ = self.get_vendor_data(porttype, port);
+
+        print("%s: %s %s has been %s" % ("dp0" + portname, porttype, part, "inserted" if presence else "removed"), flush=True)
         self.sfpmgr.on_sfp_presence_change(portname, porttype, port, presence, extra_state)
         self.record_presence_change(portname, porttype, port, presence)
 
