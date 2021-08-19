@@ -1,3 +1,10 @@
+vyatta-platform (2.15) unstable; urgency=medium
+
+  [ ck407g ]
+  * Record the boot sweep end time
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Thu, 19 Aug 2021 10:57:10 -0400
+
 vyatta-platform (2.14) unstable; urgency=medium
 
   [ Thomas Kiely ]
