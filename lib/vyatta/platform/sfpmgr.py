@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, AT&T Intellectual Property.  All rights reserved.
+# Copyright (c) 2019-2021, AT&T Intellectual Property.  All rights reserved.
 #
 # SPDX-License-Identifier: LGPL-2.1-only
 
@@ -8,8 +8,14 @@ import select
 import os
 import base64
 import systemd.daemon
+import logging
 from vyatta.platform.basesfphelper import SfpHelperException
 from vyatta.platform.basesfphelper import ModuleNotPresentException
+from vyatta.proto import SFPMonitor_pb2
+from threading import Event, Thread
+
+dbg = logging.debug
+info = logging.info
 
 class SfpState:
     def __init__(self, porttype, port, extra_state):
@@ -20,6 +26,43 @@ class SfpState:
         self.state['type'] = porttype
         self.state['port'] = port
 
+class SFPMonitorTimer(Thread):
+    def __init__(self, mgr):
+        Thread.__init__(self)
+        self.stopped = Event()
+        self.mgr = mgr
+        self.req_socket = mgr.get_req_socket()
+        endpoint = mgr.get_rep_socket_endpoint()
+        self.req_socket.connect(endpoint)
+        self.status_interval = None
+
+    def run(self):
+        '''
+        Trigger sfp monitoring at interval if the interval is
+        not None.
+        '''
+        while not self.stopped.wait(self.status_interval):
+            self.req_socket.send_json({ 'command': 'SFPMONITORTRIGGER'})
+            msg = self.req_socket.recv_json(strict=False)
+
+            if msg['result'] != 'OK':
+                dbg("SFP monitoring trigger not accepted")
+
+    def setInterval(self, newTime):
+        '''
+        Set the monitoring interval and stop thread if 0
+        '''
+        self.status_interval = int(newTime)
+        if self.status_interval == 0:
+            self.stopThread()
+
+    def stopThread(self):
+        '''
+        Closes the state monitoring thread
+        '''
+        dbg("Stopping SFPMonitorTimer thread")
+        self.stopped.set()
+
 class SfpStateManager(object):
     '''
     SFP State Manager
@@ -28,7 +71,9 @@ class SfpStateManager(object):
     changes via ZMQ, and allows those parties to also enact changes to
     the state of SFPs.
     '''
-    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, sfphelper):
+    MON_ENDPOINT = "ipc:///var/run/vyatta/sfp_monitor.socket"
+
+    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, sfphelper, sfpd_monitor=None):
         self._ctx = zmq.Context.instance()
         self._ctx.IPV6 = 1
         self._ctx.LINGER = 0
@@ -50,6 +95,11 @@ class SfpStateManager(object):
         self.sfp_state = {}
         self.sfphelper = sfphelper
         self._req_endpoint = req_endpoint
+        self._rep_endpoint = rep_endpoint
+        self.monitor_socket = self._ctx.socket(zmq.PUB)
+        self.monitor_socket.bind(self.MON_ENDPOINT)
+        self.timer = None
+        self.sfpd_monitor_callback = sfpd_monitor
 
     def _dict_merge(self, a, b, path=None):
         '''
@@ -89,9 +139,16 @@ class SfpStateManager(object):
             eth_10g = content[3]
             eth_compat = content[6]
             eth_extended_comp = content[36]
+            sff_8472_comp = content[94]
             sfp_state['eeprom_eth_10g'] = eth_10g
             sfp_state['eeprom_eth_compat'] = eth_compat
             sfp_state['eeprom_eth_extended_comp'] = eth_extended_comp
+
+            # SFF 8472 compliance
+            if sff_8472_comp > 0x00 and sff_8472_comp < 0x0A:
+                sfp_state['has_diag'] = True
+            else:
+                sfp_state['has_diag'] = False
         except SfpHelperException:
             # Module was removed in between notification it was
             # inserted and retrieval of information, or no EEPROM
@@ -111,6 +168,11 @@ class SfpStateManager(object):
             # SFF_8636_EXT_COMPLIANCE
             if eth_1040100g & 0x80:
                 sfp_state['eeprom_eth_extended_comp'] = eth_extended_comp
+
+            if content[147] & 0x0F < 0xA: # Fibre QSFP
+                sfp_state['has_diag'] = True
+            else: # Copper QSFP
+                sfp_state['has_diag'] = False
         except SfpHelperException:
             # Module was removed in between notification it was
             # inserted and retrieval of information, or no EEPROM
@@ -133,7 +195,8 @@ class SfpStateManager(object):
             return True
         return False
 
-    def on_sfp_presence_change(self, portname, porttype, port, presence, extra_state):
+    def on_sfp_presence_change(self, portname, porttype, port, presence,
+                               extra_state):
         '''
         Notifies the SFP manager that the presence of an SFP has
         changed
@@ -143,6 +206,7 @@ class SfpStateManager(object):
         'QSFP'.
         '''
         topic = "sfp"
+
         if not extra_state:
             extra_state = {}
             if porttype == 'SFP':
@@ -156,7 +220,7 @@ class SfpStateManager(object):
            self.sfphelper.set_sgmii_enabled(porttype, port):
             extra_state['sgmii_enabled'] = True
         if 'sgmii_enabled' in extra_state and extra_state['sgmii_enabled']:
-            print("%s %d is SGMII capable" % (porttype, port))
+            info("%s %d is SGMII capable" % (porttype, port))
 
         sfp_state = SfpState(porttype, port, extra_state)
         if presence:
@@ -289,7 +353,7 @@ class SfpStateManager(object):
         if 'extra_state' in json:
             extra_state = json['extra_state']
         else:
-            extra_state = None
+            extra_state = {}
 
         # If the SFP helper supports a method processing this then
         # call it, otherwise use the default on_sfp_presence_change
@@ -298,19 +362,59 @@ class SfpStateManager(object):
             portname, porttype, int(portid), inserted, extra_state)
         self.rep_socket.send_json({ 'result': 'OK' })
 
-    def _sfp_monitor_timer_handler():
-        return
+    def build_monitor_msg(self, data):
+        '''
+        Returns monitoring protobuf message with EEPROM data.
+        '''
+        cfg = SFPMonitor_pb2.SFPStatusList()
+        for porttype in data:
+            for port in data[porttype]['eeprom']:
+                eeprom_data = data[porttype]['eeprom'][port]
+                if eeprom_data is None:
+                    continue
+                current_sfp = cfg.sfp.add()
+                current_sfp.name = port
+                current_sfp.type = porttype
+                current_eeprom = current_sfp.data.add()
+                current_eeprom.offset = data[porttype]['offset']
+                current_eeprom.length = data[porttype]['length']
+                current_eeprom.data = eeprom_data
+
+        return cfg
+
+    def _sfp_monitor_timer_handler(self):
+        '''
+        Retrieves data from SFP EEPROMs and sends to dataplane.
+        '''
+        self.rep_socket.send_json({ 'result': 'OK' })
+        if self.sfpd_monitor_callback is not None:
+            data = self.sfpd_monitor_callback()
+
+        monitor_msg = self.build_monitor_msg(data)
+        self.monitor_socket.send_string('SFPDSTATUS_NOTIFY')
+        self.monitor_socket.send_multipart([b'SFPDSTATUS_MSG',
+                                            monitor_msg.SerializeToString()])
+
+    def update_monitoring_interval(self, interval):
+        dbg("Setting monitoring interval to {}s".format(interval))
+
+        if self.timer is None or not self.timer.is_alive():
+            dbg("Starting SFPMonitorTimer thread")
+            self.timer = SFPMonitorTimer(self)
+            self.timer.setInterval(interval)
+            self.timer.start()
+
+        self.timer.setInterval(interval)
 
     def _process_sfpmonitorinterval_command(self, json):
-        """ Process the monitor interval command
+        '''
+        Process the monitor interval command
 
         This command sets up a handler to be woken up periodically to poll
         the state of all SFPs in the system.
-        """
-        interval = json['interval']
-
-        print("Setting monitoring interval to {}s".format(interval))
-
+        '''
+        interval = json['value']
+        self.update_monitoring_interval(interval)
         self.rep_socket.send_json({ 'result': 'OK' })
 
     def process_rep_socket(self):
@@ -343,6 +447,8 @@ class SfpStateManager(object):
                     self._process_sfpinsertedremoved_command(json)
                 elif command == 'SFPMONITORINTERVAL':
                     self._process_sfpmonitorinterval_command(json)
+                elif command == 'SFPMONITORTRIGGER':
+                    self._sfp_monitor_timer_handler()
                 else:
                     self.rep_socket.send_json(
                         { 'result': 'unrecognised command {}'.format(command) })
@@ -360,15 +466,21 @@ class SfpStateManager(object):
 
     def get_req_socket(self):
         '''
-        Get the REP socket
+        Get the REQ socket
         '''
         return self._ctx.socket(zmq.REQ)
 
     def get_req_socket_endpoint(self):
         '''
-        Get the REP socket
+        Get the REQ socket endpoint
         '''
         return self._req_endpoint
+
+    def get_rep_socket_endpoint(self):
+        '''
+        Get the REP socket
+        '''
+        return self._rep_endpoint
 
 def main():
     '''
