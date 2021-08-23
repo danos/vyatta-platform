@@ -1,3 +1,10 @@
+vyatta-platform (2.16) unstable; urgency=medium
+
+  [ kalaivani vinothkumar ]
+  * Modify OIR event logs for more clarity
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Mon, 23 Aug 2021 06:23:50 -0400
+
 vyatta-platform (2.15) unstable; urgency=medium
 
   [ ck407g ]
