@@ -298,6 +298,21 @@ class SfpStateManager(object):
             portname, porttype, int(portid), inserted, extra_state)
         self.rep_socket.send_json({ 'result': 'OK' })
 
+    def _sfp_monitor_timer_handler():
+        return
+
+    def _process_sfpmonitorinterval_command(self, json):
+        """ Process the monitor interval command
+
+        This command sets up a handler to be woken up periodically to poll
+        the state of all SFPs in the system.
+        """
+        interval = json['interval']
+
+        print("Setting monitoring interval to {}s".format(interval))
+
+        self.rep_socket.send_json({ 'result': 'OK' })
+
     def process_rep_socket(self):
         '''
         Process a message becoming available on the REP socket
@@ -326,6 +341,8 @@ class SfpStateManager(object):
                     self._process_sfpqueryeeprom_command(json)
                 elif command == 'SFPINSERTEDREMOVED':
                     self._process_sfpinsertedremoved_command(json)
+                elif command == 'SFPMONITORINTERVAL':
+                    self._process_sfpmonitorinterval_command(json)
                 else:
                     self.rep_socket.send_json(
                         { 'result': 'unrecognised command {}'.format(command) })
