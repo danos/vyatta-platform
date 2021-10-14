@@ -1,3 +1,13 @@
+vyatta-platform (2.17) unstable; urgency=medium
+
+  [ Srinivas Narayan ]
+  * sfp-monitor: Process SFP monitoring interval command
+
+  [ Cian O'Sullivan ]
+  * sfp-monitor: Implement SFP status monitoring
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Thu, 14 Oct 2021 08:06:37 -0400
+
 vyatta-platform (2.16) unstable; urgency=medium
 
   [ kalaivani vinothkumar ]
