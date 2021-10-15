@@ -304,7 +304,7 @@ class SfpDaemon(object):
           Bytes 86 - 97: Control
         """
         status_fields = defaultdict(lambda: defaultdict(dict))
-        status_fields['SFP'] = {'start':255 + 96, 'length':22}
+        status_fields['SFP'] = {'start':256 + 96, 'length':22}
         status_fields['QSFP'] = {'start':3, 'length':95}
         return status_fields
 
