@@ -1,3 +1,10 @@
+vyatta-platform (2.18) unstable; urgency=medium
+
+  [ Cian O'Sullivan ]
+  * Fix incorrect byte offset for SFP EEPROM
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Fri, 15 Oct 2021 14:48:54 -0400
+
 vyatta-platform (2.17) unstable; urgency=medium
 
   [ Srinivas Narayan ]
