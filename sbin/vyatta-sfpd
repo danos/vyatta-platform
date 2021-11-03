@@ -62,7 +62,7 @@ class SfpDaemon(object):
         self.monitor_socket.bind(monitor_endpoint)
         self.sfpmgr = SfpStateManager(self.pub_endpoint, self.rep_endpoint,
                                       self.req_endpoint, self.sfphelper,
-                                      self.check_status)
+                                      self.monitor_socket, self.check_status)
 
         if monitor_endpoint.startswith("ipc://"):
             # Make it user/group readable/writable so it's possible

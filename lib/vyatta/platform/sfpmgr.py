@@ -71,9 +71,7 @@ class SfpStateManager(object):
     changes via ZMQ, and allows those parties to also enact changes to
     the state of SFPs.
     '''
-    MON_ENDPOINT = "ipc:///var/run/vyatta/sfp_monitor.socket"
-
-    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, sfphelper, sfpd_monitor=None):
+    def __init__(self, pub_endpoint, rep_endpoint, req_endpoint, sfphelper, monitor_socket, sfpd_monitor=None):
         self._ctx = zmq.Context.instance()
         self._ctx.IPV6 = 1
         self._ctx.LINGER = 0
@@ -96,8 +94,7 @@ class SfpStateManager(object):
         self.sfphelper = sfphelper
         self._req_endpoint = req_endpoint
         self._rep_endpoint = rep_endpoint
-        self.monitor_socket = self._ctx.socket(zmq.PUB)
-        self.monitor_socket.bind(self.MON_ENDPOINT)
+        self.monitor_socket = monitor_socket
         self.timer = None
         self.sfpd_monitor_callback = sfpd_monitor
 
