@@ -1,3 +1,10 @@
+vyatta-platform (2.19) unstable; urgency=medium
+
+  [ ck407g ]
+  * Fix for sfp-permit-list notifications not being sent to the dataplane
+
+ -- Charles (Chas) Williams <ciwillia@vyatta.att-mail.com>  Thu, 04 Nov 2021 09:35:53 -0400
+
 vyatta-platform (2.18) unstable; urgency=medium
 
   [ Cian O'Sullivan ]
